@@ -1,0 +1,163 @@
+import pytesseract
+from PIL import Image
+import json
+import re
+
+# Load Tesseract OCR
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+# List of image paths
+image_paths = [
+    r'C:\Python\Code\Nirmala Precision Tools-1.jpg',
+    r'C:\Python\Code\Okay Tools Pvt. Ltd-1.jpg',
+    r'C:\Python\Code\Permali Wallace Pvt Ltd-1.jpg',
+    r'C:\Python\Code\Pravin Traders-1.jpg',
+    r'C:\Python\Code\Rajhans Fabrication Pvt. Ltd-1.jpg',
+    r'C:\Python\Code\Recherche Industries-1.jpg',
+    r'C:\Python\Code\Shakuntech Packing Pvt. Ltd-1.jpg',
+    r'C:\Python\Code\Shiv Om Fastners-1.jpg',
+    r'C:\Python\Code\Shubhada Polymers Products P.Ltd-1.jpg',
+    r'C:\Python\Code\Sterling Fabory (India) Pvt. Ltd-1.jpg',
+    r'C:\Python\Code\Supernova Waterjet Cutting Systems-1.jpg',
+    r'C:\Python\Code\Tanmay Engineering-1.jpg',
+    r'C:\Python\Code\Trimbakeshwar Engineering Pvt. Ltd-1.jpg',
+    r'C:\Python\Code\Urjayant Engineering Pvt. Ltd-1.jpg',
+    r'C:\Python\Code\Vasav Precision Engg. Pvt. Ltd-1.jpg',
+]
+
+# Initialize a list to store extracted invoice data
+all_invoice_data = []
+
+for image_path in image_paths:
+    # Load the invoice image
+    image = Image.open(image_path)
+
+    # Perform OCR on the image
+    ocr_text = pytesseract.image_to_string(image)
+    
+    # Default value for invoice_number
+    invoice_number = None
+    invoice_date = None
+    invoice_number = None
+    invoice_date = None
+    vendor_name = None
+    vendor_address = None
+    buyer_name = None
+    buyer_address = None
+    total_invoice = None
+    total_invoice_amount = None
+    total_tax_amount = None
+    po_number = None
+    
+    invoice_number_match = re.search(r'Inv\.? No\.? :? (\w+)', ocr_text, re.IGNORECASE)
+    if invoice_number_match:
+        invoice_number = invoice_number_match.group(1)
+    else:
+        invoice_number = None
+        
+    # Extract Vendor Name
+    vendor_name_match = re.search(r'Vendor Name:\s*(.*)', ocr_text)
+    if vendor_name_match:
+        vendor_name = vendor_name_match.group(1)
+
+    # Extract Vendor Address
+    vendor_address_match = re.search(r'Vendor Address:\s*(.*)', ocr_text)
+    if vendor_address_match:
+        vendor_address = vendor_address_match.group(1)
+
+    # Extract Buyer Name
+    buyer_name_match = re.search(r'Buyer Name:\s*(.*)', ocr_text)
+    if buyer_name_match:
+        buyer_name = buyer_name_match.group(1)
+
+    # Extract Buyer Address
+    buyer_address_match = re.search(r'Buyer Address:\s*(.*)', ocr_text)
+    if buyer_address_match:
+        buyer_address = buyer_address_match.group(1)
+
+    # Extract Total Invoice
+    total_invoice_match = re.search(r'Total Invoice:\s*(.*)', ocr_text)
+    if total_invoice_match:
+        total_invoice = total_invoice_match.group(1)
+
+    # Extract Total Invoice Amount
+    total_invoice_amount_match = re.search(r'Total Invoice Amount:\s*(.*)', ocr_text)
+    if total_invoice_amount_match:
+        total_invoice_amount = total_invoice_amount_match.group(1)
+
+    # Extract Total Tax Amount
+    total_tax_amount_match = re.search(r'Total Tax Amount:\s*(.*)', ocr_text)
+    if total_tax_amount_match:
+        total_tax_amount = total_tax_amount_match.group(1)
+
+    # Extract PO Number
+    po_number_match = re.search(r'PO Number:\s*(.*)', ocr_text)
+    if po_number_match:
+        po_number = po_number_match.group(1)
+
+
+# Direct search for the "Invoice Date:" prefix
+    invoice_date_prefix = "Invoice Date:"
+    invoice_date_start = ocr_text.find(invoice_date_prefix)
+    if invoice_date_start != -1:
+        # Search for the next occurrence of a date pattern
+        date_pattern = re.compile(r'(\d{2}/\d{2}/\d{4})')
+        match = date_pattern.search(ocr_text, invoice_date_start)
+        if match:
+            invoice_date = match.group(1)
+
+    gst_number = re.search(r'GST Number: ([\w\d]+)', ocr_text)
+    if gst_number:
+        gst_number = gst_number.group(1)
+
+    gst_number = re.search(r'GST Number: ([\w\d]+)', ocr_text)
+    if gst_number:
+        gst_number = gst_number.group(1)
+
+    # Extract item details using regex
+    item_details = []
+    items = re.findall(r'(\d+)\. (\w+.+?) (\d+)\s+(\d+)\s+([\d.]+)\s+([\d.]+)', ocr_text, re.DOTALL)
+    for item in items:
+        item_code, item_name, quantity, item_price, discount, taxation = item
+        item_details.append({
+            "ItemCode": item_code,
+            "ItemName": item_name,
+            "Quantity": quantity,
+            "ItemPrice": item_price,
+            "Discount": discount,
+            "Taxation": taxation
+        })
+
+    # ... extract other information ...
+
+    invoice_data = {
+        "InvoiceNumber": invoice_number,
+        "InvoiceDate": invoice_date,
+        "GSTNumber": gst_number,
+        "InvoiceDate": invoice_date,
+        "GSTNumber": gst_number,
+        "VendorName": vendor_name,
+        "VendorAddress": vendor_address,
+        "BuyerName": buyer_name,
+        "BuyerAddress": buyer_address,
+        "TotalInvoice": total_invoice,
+        "TotalInvoiceAmount": total_invoice_amount,
+        "TotalTaxAmount": total_tax_amount,
+        "PONumber": po_number,
+		
+        # ... other information ...
+        "ItemDetails": item_details,
+        # ... other information ...
+    }
+
+    all_invoice_data.append(invoice_data)
+
+# Convert the list of dictionaries to JSON
+output_json = json.dumps(all_invoice_data, indent=4)
+
+# Save the JSON to a file
+output_path = 'all_invoices_output.json'
+with open(output_path, 'w') as json_file:
+    json_file.write(output_json)
+
+print("All invoice data extracted and saved to:", output_path)
