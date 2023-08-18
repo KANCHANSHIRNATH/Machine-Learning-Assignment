@@ -1,0 +1,153 @@
+import pytesseract
+from PIL import Image
+import json
+import re
+import subprocess
+
+# Load Tesseract OCR
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+# List of image paths
+image_paths = [ r'C:\Python\Code\Shiv Om Fastners-1.jpg']
+
+# Initialize a list to store extracted invoice data
+all_invoice_data = []
+
+for image_path in image_paths:
+    # Load the invoice image
+    image = Image.open(image_path)
+
+    # Perform OCR on the image
+    ocr_text = pytesseract.image_to_string(image)
+    
+    cmd = f'tesseract.exe "{image_path}" stdout'
+    completed_process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    ocr_text = completed_process.stdout
+    
+    # Default value for invoice_number
+    invoice_number = None
+    order_date = None
+    gstin_match = None
+    bank_details = None
+    net_amount = None
+    gross_amount = None
+    order_number = None
+    billed_to = None
+    
+    invoice_number_prefix = "Invoice No."
+    invoice_number_start = ocr_text.find(invoice_number_prefix)
+    invoice_number_match = re.search(r'Inv\. No\. :(\w+)', ocr_text, re.IGNORECASE)
+    if invoice_number_match:
+        invoice_number = invoice_number_match.group(1)
+
+    
+    
+    # Extract Order Date
+    order_date_match = re.search(r'Order Date\s*:\s*(\d{2}/\d{2}/\d{4})', ocr_text)
+    if order_date_match:
+        order_date = order_date_match.group(1)
+        print("Order Date:", order_date)
+    else:
+        print("Order Date not found")
+        
+    net_amount_match = re.search(r'Net Amount\s*([\d.]+)', ocr_text)
+    if net_amount_match:
+        net_amount = net_amount_match.group(1)
+        print("Net Amount:", net_amount)
+    else:
+        print("Net Amount not found")
+    
+    bank_details_patterns = [
+    r'Bank Details:\s*(.*)',
+    r'Branch:\s*(.*)',
+    r'AIC.No:\s*(.*)',
+    r'RTGS/NEFT/IFSC Code:\s*(.*)'
+]
+
+    bank_details = {}
+    for pattern in bank_details_patterns:
+        match = re.search(pattern, ocr_text)
+        if match:
+            details = match.group(1).strip()
+            key_value_pairs = details.split(':')
+            if len(key_value_pairs) >= 2:
+                key = key_value_pairs[0].strip()
+                value = ':'.join(key_value_pairs[1:]).strip()
+                bank_details[key] = value
+    
+    # Process the 'Branch' line separately since it has a different format
+    branch_match = re.search(r'Branch:\s*([^AIC.No:]+)', ocr_text)
+    if branch_match:
+        bank_details['Branch'] = branch_match.group(1).strip()
+    
+    if bank_details:
+        formatted_bank_details = '\n'.join([f"{key}: {value}" for key, value in bank_details.items()])
+        print(formatted_bank_details)
+    else:
+        print("Bank Details not found")
+        
+        # Extract Gross Amount
+    gross_amount_match = re.search(r'Gross Amount\s*([\d.]+)', ocr_text)
+    if gross_amount_match:
+        gross_amount = gross_amount_match.group(1)
+        print("Gross Amount:", gross_amount)
+    else:
+        print("Gross Amount not found")
+        
+        # Extract GSTIN
+    gstin_match = re.search(r'GSTIN\s*:\s*([A-Z\d]{15,}|[A-Z\d]{10})', ocr_text)
+    if gstin_match:
+        gstin = gstin_match.group(1)
+        print("GSTIN:", gstin)
+    else:
+        print("GSTIN not found")
+        
+    # Extract Order Number
+    order_number_match = re.search(r'Order No\.\s*:(\w+)', ocr_text)
+    if order_number_match:
+        order_number = order_number_match.group(1)
+        print("Order Number:", order_number)
+    else:
+        print("Order Number not found")
+        
+      
+    # Replace problematic characters with spaces
+    ocr_text_cleaned = re.sub(r'[‘’]', "'", ocr_text)
+    ocr_text_cleaned = re.sub(r'[^a-zA-Z0-9\s.:/-]', ' ', ocr_text_cleaned)
+
+    # ... your other code ...
+
+    # Extract Billed To
+    billed_to_match = re.search(r'Billed To\s*:\s*([\s\S]+?)(?:\nShipped To|\nState|\nNo)', ocr_text_cleaned)
+    if billed_to_match:
+        billed_to_text = billed_to_match.group(1).strip()
+        print("Billed To:", billed_to_text)
+    else:
+        print("Billed To not found")
+   
+    # ... extract other information ...
+
+    invoice_data = {
+        "InvoiceNumber": invoice_number,
+        "OrderDate": order_date,
+        "gstin_match": gstin,
+        "net_amount": net_amount,
+        "bankdetails": bank_details,
+        "grossamount": gross_amount,
+        "orderNumber": order_number,
+        "BilledTo": billed_to_text
+        
+       
+    }
+
+    all_invoice_data.append(invoice_data)
+
+# Convert the list of dictionaries to JSON
+output_json = json.dumps(all_invoice_data, indent=4)
+
+# Save the JSON to a file
+output_path = 'all_invoices_output.json'
+with open(output_path, 'w') as json_file:
+    json_file.write(output_json)
+
+print("All invoice data extracted and saved to:", output_path)
