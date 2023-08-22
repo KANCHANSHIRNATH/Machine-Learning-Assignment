@@ -1,0 +1,31 @@
+import os
+import re
+import csv
+import pytesseract
+from PIL import Image
+
+def extract_contacts_from_image(image_path):
+    image = Image.open(image_path)
+    text = pytesseract.image_to_string(image)
+    
+    emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b', text)
+    phone_numbers = re.findall(r'\b\d{10}\b', text)  # Basic pattern for 10-digit phone numbers
+    
+    return emails, phone_numbers
+
+image_directory = 'C:\Python\Code\images'
+output_csv = 'contacts.csv'
+
+with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
+    csvwriter = csv.writer(csvfile)
+    csvwriter.writerow(['Image', 'Email', 'Phone Number'])
+
+    for image_file in os.listdir(image_directory):
+        if image_file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+            image_path = os.path.join(image_directory, image_file)
+            emails, phone_numbers = extract_contacts_from_image(image_path)
+
+            for email, phone_number in zip(emails, phone_numbers):
+                csvwriter.writerow([image_file, email, phone_number])
+
+print(f"Emails and phone numbers extracted from images saved to {output_csv}")
